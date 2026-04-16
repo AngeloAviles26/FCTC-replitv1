@@ -16,6 +16,21 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## Artifacts
+
+### From Campus to Career (Mobile App)
+- **Type**: Expo (React Native)
+- **Directory**: `artifacts/campus-to-career/`
+- **Color scheme**: Blue (#1A5CDB primary) and white/light gray for light mode; deep navy for dark mode
+- **Screens**: Login, Register, Home/Dashboard, Gap Analysis, Roadmap, Profile
+- **Navigation**: Bottom tabs (Home, Gap Analysis, Roadmap, Profile)
+- **State**: AsyncStorage-backed via `context/AppContext.tsx`
+- **Theme tokens**: `constants/colors.ts` + `hooks/useColors.ts`
+
+### API Server
+- **Type**: Express + TypeScript
+- **Directory**: `artifacts/api-server/`
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages
@@ -23,5 +38,6 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
+- `pnpm --filter @workspace/campus-to-career run dev` — run Expo app locally
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
