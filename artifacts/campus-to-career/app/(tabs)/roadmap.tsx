@@ -1,282 +1,321 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  Platform,
-  Pressable,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useApp, type RoadmapItem } from "@/context/AppContext";
-import { useColors } from "@/hooks/useColors";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-type Tab = "Certifications" | "Projects";
+import { RoadmapCert, RoadmapProject, useApp } from "@/context/AppContext";
+
+const STATUS_CONFIG = {
+  "Not Started": { color: "#94a3b8", bg: "#f1f5f9", label: "Not Started" },
+  "In Progress": { color: "#f59e0b", bg: "#fffbeb", label: "In Progress" },
+  "Completed": { color: "#10b981", bg: "#f0fdf4", label: "Completed" },
+};
 
 export default function RoadmapScreen() {
-  const colors = useColors();
-  const insets = useSafeAreaInsets();
-  const { roadmap, updateRoadmapStatus } = useApp();
-  const [activeTab, setActiveTab] = useState<Tab>("Certifications");
+  const { user, updateRoadmapCertStatus, updateRoadmapProjectStatus } = useApp();
+  const [activeTab, setActiveTab] = useState<"certs" | "projects">("certs");
+  const [expandedCert, setExpandedCert] = useState<string | null>(null);
+  const [expandedProject, setExpandedProject] = useState<string | null>(null);
 
-  const items = roadmap.filter((r) => r.type === (activeTab === "Certifications" ? "Certification" : "Project"));
-  const completed = items.filter((i) => i.status === "Completed").length;
-  const total = items.length;
+  if (!user) return null;
 
-  const nextStatus = (current: RoadmapItem["status"]): RoadmapItem["status"] => {
-    if (current === "Not Started") return "In Progress";
-    if (current === "In Progress") return "Completed";
-    return "Not Started";
+  const certs = user.roadmapCerts ?? [];
+  const projects = user.roadmapProjects ?? [];
+
+  const completedCerts = certs.filter((c) => c.status === "Completed").length;
+  const inProgressCerts = certs.filter((c) => c.status === "In Progress").length;
+  const totalGapsCloseable = certs.reduce((acc, c) => {
+    c.gapsClosedIds.forEach((id) => acc.add(id));
+    return acc;
+  }, new Set<string>()).size;
+
+  const handleCertStatus = (cert: RoadmapCert, status: RoadmapCert["status"]) => {
+    if (status === "Completed") {
+      Alert.alert(
+        "Mark as Completed?",
+        `Marking "${cert.title}" as completed will add these skills to your profile and recalculate your readiness score:\n\n${cert.gapsClosedNames.join(", ")}`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Mark Completed", style: "default", onPress: () => updateRoadmapCertStatus(cert.id, "Completed") },
+        ]
+      );
+    } else {
+      updateRoadmapCertStatus(cert.id, status);
+    }
   };
 
-  return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scroll,
-          {
-            paddingBottom: 100,
-            paddingTop: Platform.OS === "web" ? insets.top + 67 : 0,
-          },
-        ]}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.heading, { color: colors.foreground }]}>Learning Roadmap</Text>
-          <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-            Track your progress toward career readiness
-          </Text>
-        </View>
-
-        <View style={[styles.progressCard, { backgroundColor: colors.primary }]}>
-          <View style={styles.progressInfo}>
-            <Text style={styles.progressTitle}>Overall Progress</Text>
-            <Text style={styles.progressValue}>{completed}/{total} {activeTab}</Text>
-          </View>
-          <View style={styles.progressBarWrap}>
-            <View style={[styles.progressBarBg]}>
-              <View style={[styles.progressBarFill, { width: total > 0 ? `${(completed / total) * 100}%` : "0%" }]} />
-            </View>
-            <Text style={styles.progressPct}>{total > 0 ? Math.round((completed / total) * 100) : 0}%</Text>
-          </View>
-        </View>
-
-        <View style={[styles.tabRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {(["Certifications", "Projects"] as Tab[]).map((tab) => (
-            <Pressable
-              key={tab}
-              onPress={() => setActiveTab(tab)}
-              style={[
-                styles.tab,
-                activeTab === tab && { backgroundColor: colors.primary, borderRadius: 10 },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: activeTab === tab ? "#fff" : colors.mutedForeground },
-                ]}
-              >
-                {tab}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <View style={styles.list}>
-          {items.map((item) => (
-            <View
-              key={item.id}
-              style={[
-                styles.card,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: item.status === "Completed" ? colors.success : item.status === "In Progress" ? colors.primary : colors.border,
-                  borderLeftWidth: 3,
-                },
-              ]}
-            >
-              <View style={styles.cardTop}>
-                <View style={styles.cardLeft}>
-                  <Text style={[styles.cardTitle, { color: colors.foreground }]}>{item.title}</Text>
-                  {item.provider && (
-                    <View style={styles.providerRow}>
-                      <Feather name="award" size={12} color={colors.mutedForeground} />
-                      <Text style={[styles.provider, { color: colors.mutedForeground }]}>{item.provider}</Text>
-                    </View>
-                  )}
-                  {item.duration && (
-                    <View style={styles.providerRow}>
-                      <Feather name="clock" size={12} color={colors.mutedForeground} />
-                      <Text style={[styles.provider, { color: colors.mutedForeground }]}>{item.duration}</Text>
-                    </View>
-                  )}
-                </View>
-                <StatusBadge status={item.status} />
-              </View>
-
-              <View style={styles.skillsRow}>
-                {item.skills.map((s) => (
-                  <View key={s} style={[styles.skillChip, { backgroundColor: colors.blueLight }]}>
-                    <Text style={[styles.skillText, { color: colors.primary }]}>{s}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <TouchableOpacity
-                onPress={() => updateRoadmapStatus(item.id, nextStatus(item.status))}
-                style={[
-                  styles.progressBtn,
-                  {
-                    backgroundColor:
-                      item.status === "Completed"
-                        ? "#dcfce7"
-                        : item.status === "In Progress"
-                        ? colors.primary
-                        : colors.blueLight,
-                  },
-                ]}
-                activeOpacity={0.8}
-              >
-                <Feather
-                  name={item.status === "Completed" ? "rotate-ccw" : item.status === "In Progress" ? "check" : "play"}
-                  size={14}
-                  color={
-                    item.status === "Completed"
-                      ? colors.success
-                      : item.status === "In Progress"
-                      ? "#fff"
-                      : colors.primary
-                  }
-                />
-                <Text
-                  style={[
-                    styles.progressBtnText,
-                    {
-                      color:
-                        item.status === "Completed"
-                          ? colors.success
-                          : item.status === "In Progress"
-                          ? "#fff"
-                          : colors.primary,
-                    },
-                  ]}
-                >
-                  {item.status === "Completed"
-                    ? "Mark Incomplete"
-                    : item.status === "In Progress"
-                    ? "Mark Complete"
-                    : "Start Learning"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
-
-        <SkillDecaySection />
-      </ScrollView>
-    </View>
-  );
-}
-
-function SkillDecaySection() {
-  const colors = useColors();
-  const { skillDecays } = useApp();
+  const projectedScore = user.readinessScore + certs
+    .filter((c) => c.status === "In Progress")
+    .reduce((sum, c) => sum + Math.round((c.gapsClosedIds.length / user.totalRequired) * 100), 0);
 
   return (
-    <View style={[styles.decaySection, { borderTopColor: colors.border }]}>
-      <View style={styles.decayHeader}>
-        <Feather name="trending-down" size={16} color="#ef4444" />
-        <Text style={[styles.decayTitle, { color: colors.foreground }]}>Skill Decay Alerts</Text>
+    <SafeAreaView style={s.safe} edges={["top"]}>
+      <View style={s.header}>
+        <Text style={s.headerTitle}>Your Roadmap</Text>
+        <Text style={s.headerSub}>{user.targetCareer ?? "Career"} · Philippine Market</Text>
+
+        <View style={s.statsRow}>
+          <View style={s.statCard}>
+            <Text style={s.statNum}>{user.readinessScore}%</Text>
+            <Text style={s.statLabel}>Current readiness</Text>
+          </View>
+          <View style={s.statDivider} />
+          <View style={s.statCard}>
+            <Text style={[s.statNum, { color: "#10b981" }]}>{Math.min(projectedScore, 100)}%</Text>
+            <Text style={s.statLabel}>Projected (in progress)</Text>
+          </View>
+          <View style={s.statDivider} />
+          <View style={s.statCard}>
+            <Text style={[s.statNum, { color: "#1A5CDB" }]}>{totalGapsCloseable}</Text>
+            <Text style={s.statLabel}>Gaps closeable</Text>
+          </View>
+        </View>
       </View>
-      {skillDecays.map((d) => (
-        <View key={d.id} style={[styles.decayCard, { backgroundColor: "#fff5f5", borderColor: "#fecaca" }]}>
-          <View style={styles.decayLeft}>
-            <Text style={[styles.decaySkill, { color: colors.foreground }]}>{d.skill}</Text>
-            <View style={styles.decayArrow}>
-              <Feather name="arrow-down" size={12} color="#ef4444" />
-              <Text style={{ color: "#ef4444", fontSize: 12, fontFamily: "Inter_600SemiBold" }}>
-                {Math.abs(d.trend)}% declining
-              </Text>
+
+      <View style={s.tabRow}>
+        <TouchableOpacity style={[s.tab, activeTab === "certs" && s.tabActive]} onPress={() => setActiveTab("certs")}>
+          <Feather name="award" size={15} color={activeTab === "certs" ? "#1A5CDB" : "#94a3b8"} />
+          <Text style={[s.tabText, activeTab === "certs" && s.tabTextActive]}>
+            Certifications ({certs.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.tab, activeTab === "projects" && s.tabActive]} onPress={() => setActiveTab("projects")}>
+          <Feather name="code" size={15} color={activeTab === "projects" ? "#1A5CDB" : "#94a3b8"} />
+          <Text style={[s.tabText, activeTab === "projects" && s.tabTextActive]}>
+            Projects ({projects.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={s.scroll} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+        {activeTab === "certs" && (
+          <>
+            {inProgressCerts > 0 && (
+              <View style={s.inProgressBanner}>
+                <View style={s.inProgressDot} />
+                <Text style={s.inProgressText}>{inProgressCerts} certification{inProgressCerts !== 1 ? "s" : ""} in progress · Keep going!</Text>
+              </View>
+            )}
+            {completedCerts > 0 && (
+              <View style={s.completedBanner}>
+                <Text style={s.completedText}>✅ {completedCerts} certification{completedCerts !== 1 ? "s" : ""} completed</Text>
+              </View>
+            )}
+
+            {certs.map((cert, i) => {
+              const expanded = expandedCert === cert.id;
+              const status = STATUS_CONFIG[cert.status];
+              return (
+                <View key={cert.id} style={[s.certCard, cert.status === "In Progress" && s.certCardActive]}>
+                  <TouchableOpacity style={s.certCardHeader} onPress={() => setExpandedCert(expanded ? null : cert.id)}>
+                    <View style={s.certRankBadge}>
+                      <Text style={s.certRankText}>{i + 1}</Text>
+                    </View>
+                    <View style={s.certHeaderLeft}>
+                      <Text style={s.certTitle}>{cert.title}</Text>
+                      <View style={s.certMetaRow}>
+                        <Text style={s.certPlatform}>{cert.platform}</Text>
+                        <Text style={s.certDot}>·</Text>
+                        <Text style={s.certDuration}>{cert.duration}</Text>
+                        {cert.free && <View style={s.freeTag}><Text style={s.freeTagText}>FREE</Text></View>}
+                      </View>
+                    </View>
+                    <View style={[s.statusBadge, { backgroundColor: status.bg }]}>
+                      <Text style={[s.statusText, { color: status.color }]}>{status.label}</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <View style={s.gapsClosedRow}>
+                    <Feather name="check-circle" size={13} color="#10b981" />
+                    <Text style={s.gapsClosedText}>
+                      Closes {cert.gapsClosedIds.length} gap{cert.gapsClosedIds.length !== 1 ? "s" : ""}: {cert.gapsClosedNames.join(", ")}
+                    </Text>
+                  </View>
+
+                  {expanded && (
+                    <View style={s.certDetails}>
+                      <View style={s.certDetailRow}>
+                        <Feather name="star" size={13} color="#f59e0b" />
+                        <Text style={s.certDetailText}>{cert.rating} ★  ·  {cert.enrolled} enrolled</Text>
+                      </View>
+                      <View style={s.certDetailRow}>
+                        <Feather name="briefcase" size={13} color="#94a3b8" />
+                        <Text style={s.certDetailText}>{cert.provider}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={s.certActions}>
+                    {cert.status === "Not Started" && (
+                      <TouchableOpacity style={s.actionBtnPrimary} onPress={() => handleCertStatus(cert, "In Progress")}>
+                        <Text style={s.actionBtnPrimaryText}>Mark In Progress</Text>
+                      </TouchableOpacity>
+                    )}
+                    {cert.status === "In Progress" && (
+                      <>
+                        <TouchableOpacity style={s.actionBtnSecondary} onPress={() => handleCertStatus(cert, "Not Started")}>
+                          <Text style={s.actionBtnSecondaryText}>Pause</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={s.actionBtnPrimary} onPress={() => handleCertStatus(cert, "Completed")}>
+                          <Text style={s.actionBtnPrimaryText}>Mark Completed ✓</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                    {cert.status === "Completed" && (
+                      <View style={s.completedRow}>
+                        <Feather name="check-circle" size={14} color="#10b981" />
+                        <Text style={s.completedLabel}>Skills added to your profile</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        )}
+
+        {activeTab === "projects" && (
+          <>
+            <View style={s.projectsNote}>
+              <Feather name="info" size={13} color="#1A5CDB" />
+              <Text style={s.projectsNoteText}>Projects close specific skill gaps and demonstrate practical ability to employers. Add them to your portfolio.</Text>
             </View>
-          </View>
-          <View style={styles.decayRight}>
-            <Text style={[styles.decayLabel, { color: colors.mutedForeground }]}>Replace with</Text>
-            <Text style={[styles.decayReplacement, { color: colors.primary }]}>{d.replacement}</Text>
-          </View>
-        </View>
-      ))}
-    </View>
+            {projects.map((project, i) => {
+              const expanded = expandedProject === project.id;
+              const status = STATUS_CONFIG[project.status];
+              return (
+                <View key={project.id} style={s.projectCard}>
+                  <TouchableOpacity style={s.projectHeader} onPress={() => setExpandedProject(expanded ? null : project.id)}>
+                    <View style={s.projectRankBadge}>
+                      <Text style={s.projectRankText}>{i + 1}</Text>
+                    </View>
+                    <View style={s.projectHeaderLeft}>
+                      <Text style={s.projectTitle}>{project.title}</Text>
+                      <Text style={s.projectTime}>{project.estimatedTime}</Text>
+                    </View>
+                    <View style={[s.statusBadge, { backgroundColor: status.bg }]}>
+                      <Text style={[s.statusText, { color: status.color }]}>{status.label}</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <View style={s.gapsClosedRow}>
+                    <Feather name="check-circle" size={13} color="#10b981" />
+                    <Text style={s.gapsClosedText}>
+                      Closes {project.gapsClosedIds.length} gap{project.gapsClosedIds.length !== 1 ? "s" : ""}: {project.gapsClosedNames.join(", ")}
+                    </Text>
+                  </View>
+
+                  {expanded && (
+                    <View style={s.projectDetails}>
+                      <Text style={s.projectDesc}>{project.description}</Text>
+                      {project.dataset && (
+                        <View style={s.datasetRow}>
+                          <Feather name="database" size={13} color="#94a3b8" />
+                          <Text style={s.datasetText}>{project.dataset}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  <View style={s.certActions}>
+                    {project.status === "Not Started" && (
+                      <TouchableOpacity style={s.actionBtnPrimary} onPress={() => updateRoadmapProjectStatus(project.id, "In Progress")}>
+                        <Text style={s.actionBtnPrimaryText}>Add to Plan</Text>
+                      </TouchableOpacity>
+                    )}
+                    {project.status === "In Progress" && (
+                      <>
+                        <TouchableOpacity style={s.actionBtnSecondary} onPress={() => updateRoadmapProjectStatus(project.id, "Not Started")}>
+                          <Text style={s.actionBtnSecondaryText}>Pause</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={s.actionBtnPrimary} onPress={() => updateRoadmapProjectStatus(project.id, "Completed")}>
+                          <Text style={s.actionBtnPrimaryText}>Mark Done ✓</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                    {project.status === "Completed" && (
+                      <View style={s.completedRow}>
+                        <Feather name="check-circle" size={14} color="#10b981" />
+                        <Text style={s.completedLabel}>Added to your portfolio</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  scroll: { flexGrow: 1 },
-  header: { padding: 20, paddingBottom: 12 },
-  heading: { fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 4 },
-  sub: { fontSize: 14, fontFamily: "Inter_400Regular" },
-  progressCard: {
-    margin: 16,
-    borderRadius: 16,
-    padding: 18,
-  },
-  progressInfo: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
-  progressTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.85)" },
-  progressValue: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" },
-  progressBarWrap: { flexDirection: "row", alignItems: "center", gap: 10 },
-  progressBarBg: { flex: 1, height: 8, backgroundColor: "rgba(255,255,255,0.25)", borderRadius: 100 },
-  progressBarFill: { height: "100%", backgroundColor: "#fff", borderRadius: 100 },
-  progressPct: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#fff", minWidth: 36, textAlign: "right" },
-  tabRow: {
-    flexDirection: "row",
-    marginHorizontal: 16,
-    marginBottom: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 4,
-  },
-  tab: { flex: 1, alignItems: "center", paddingVertical: 10 },
-  tabText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  list: { paddingHorizontal: 16, gap: 10 },
-  card: { borderRadius: 14, borderWidth: 1, padding: 16, gap: 10 },
-  cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  cardLeft: { flex: 1, gap: 4, marginRight: 10 },
-  cardTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  providerRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  provider: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  skillsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  skillChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
-  skillText: { fontSize: 11, fontFamily: "Inter_500Medium" },
-  progressBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 10,
-    alignSelf: "flex-start",
-  },
-  progressBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  decaySection: { marginTop: 24, padding: 16, borderTopWidth: 1 },
-  decayHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
-  decayTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
-  decayCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-  },
-  decayLeft: { flex: 1 },
-  decaySkill: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginBottom: 4 },
-  decayArrow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  decayRight: { alignItems: "flex-end" },
-  decayLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  decayReplacement: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#f8faff" },
+  header: { backgroundColor: "#1A5CDB", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
+  headerTitle: { fontSize: 22, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
+  headerSub: { fontSize: 12, color: "rgba(255,255,255,0.7)", fontFamily: "Inter_400Regular", marginTop: 3, marginBottom: 16 },
+  statsRow: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 12, padding: 12 },
+  statCard: { flex: 1, alignItems: "center" },
+  statNum: { fontSize: 20, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
+  statLabel: { fontSize: 10, color: "rgba(255,255,255,0.65)", fontFamily: "Inter_400Regular", marginTop: 2, textAlign: "center" },
+  statDivider: { width: 1, height: 32, backgroundColor: "rgba(255,255,255,0.2)" },
+  tabRow: { flexDirection: "row", backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
+  tab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 13, borderBottomWidth: 2, borderBottomColor: "transparent" },
+  tabActive: { borderBottomColor: "#1A5CDB" },
+  tabText: { fontSize: 13, color: "#94a3b8", fontFamily: "Inter_500Medium" },
+  tabTextActive: { color: "#1A5CDB", fontFamily: "Inter_600SemiBold" },
+  scroll: { flex: 1 },
+  inProgressBanner: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#fffbeb", borderRadius: 10, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: "#fde68a" },
+  inProgressDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#f59e0b" },
+  inProgressText: { fontSize: 13, color: "#92400e", fontFamily: "Inter_500Medium" },
+  completedBanner: { backgroundColor: "#f0fdf4", borderRadius: 10, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: "#bbf7d0" },
+  completedText: { fontSize: 13, color: "#15803d", fontFamily: "Inter_500Medium" },
+  certCard: { backgroundColor: "#fff", borderRadius: 14, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: "#e2e8f0", shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  certCardActive: { borderColor: "#fde68a", borderWidth: 1.5 },
+  certCardHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
+  certRankBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#eff6ff", alignItems: "center", justifyContent: "center", marginTop: 2 },
+  certRankText: { fontSize: 12, fontWeight: "700", color: "#1A5CDB", fontFamily: "Inter_700Bold" },
+  certHeaderLeft: { flex: 1 },
+  certTitle: { fontSize: 15, fontWeight: "700", color: "#0f172a", fontFamily: "Inter_700Bold", marginBottom: 4 },
+  certMetaRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  certPlatform: { fontSize: 12, color: "#64748b", fontFamily: "Inter_400Regular" },
+  certDot: { color: "#cbd5e1" },
+  certDuration: { fontSize: 12, color: "#64748b", fontFamily: "Inter_400Regular" },
+  freeTag: { backgroundColor: "#f0fdf4", borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
+  freeTagText: { fontSize: 9, fontWeight: "700", color: "#15803d", fontFamily: "Inter_700Bold" },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, alignSelf: "flex-start" },
+  statusText: { fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  gapsClosedRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: 10, paddingLeft: 4 },
+  gapsClosedText: { flex: 1, fontSize: 12, color: "#15803d", fontFamily: "Inter_400Regular" },
+  certDetails: { backgroundColor: "#f8faff", borderRadius: 8, padding: 10, marginBottom: 10, gap: 6 },
+  certDetailRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  certDetailText: { fontSize: 12, color: "#64748b", fontFamily: "Inter_400Regular" },
+  certActions: { flexDirection: "row", gap: 8 },
+  actionBtnPrimary: { flex: 1, backgroundColor: "#1A5CDB", borderRadius: 10, paddingVertical: 10, alignItems: "center" },
+  actionBtnPrimaryText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold" },
+  actionBtnSecondary: { backgroundColor: "#f1f5f9", borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, alignItems: "center" },
+  actionBtnSecondaryText: { color: "#64748b", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  completedRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  completedLabel: { fontSize: 12, color: "#10b981", fontFamily: "Inter_500Medium" },
+  projectsNote: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#eff6ff", borderRadius: 10, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: "#bfdbfe" },
+  projectsNoteText: { flex: 1, fontSize: 12, color: "#1A5CDB", fontFamily: "Inter_400Regular" },
+  projectCard: { backgroundColor: "#fff", borderRadius: 14, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: "#e2e8f0" },
+  projectHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
+  projectRankBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#f1f5f9", alignItems: "center", justifyContent: "center", marginTop: 2 },
+  projectRankText: { fontSize: 12, fontWeight: "700", color: "#64748b", fontFamily: "Inter_700Bold" },
+  projectHeaderLeft: { flex: 1 },
+  projectTitle: { fontSize: 15, fontWeight: "700", color: "#0f172a", fontFamily: "Inter_700Bold", marginBottom: 3 },
+  projectTime: { fontSize: 12, color: "#64748b", fontFamily: "Inter_400Regular" },
+  projectDetails: { backgroundColor: "#f8faff", borderRadius: 8, padding: 10, marginBottom: 10 },
+  projectDesc: { fontSize: 13, color: "#475569", fontFamily: "Inter_400Regular", lineHeight: 19, marginBottom: 6 },
+  datasetRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  datasetText: { fontSize: 12, color: "#94a3b8", fontFamily: "Inter_400Regular" },
 });

@@ -21,17 +21,21 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function AuthGate() {
-  const { isLoggedIn } = useApp();
+  const { user, isLoggedIn } = useApp();
   const segments = useSegments();
 
   useEffect(() => {
-    const inAuthGroup = segments[0] === "auth";
-    if (!isLoggedIn && !inAuthGroup) {
-      router.replace("/auth/login");
-    } else if (isLoggedIn && inAuthGroup) {
-      router.replace("/(tabs)/");
+    const inAuth = segments[0] === "auth";
+    const inOnboarding = segments[0] === "onboarding";
+
+    if (!isLoggedIn || !user) {
+      if (!inAuth) router.replace("/auth/login");
+    } else if (user.onboardingStep !== "complete") {
+      if (!inOnboarding) router.replace("/onboarding/step-courses");
+    } else {
+      if (inAuth || inOnboarding) router.replace("/(tabs)/");
     }
-  }, [isLoggedIn, segments]);
+  }, [isLoggedIn, user, segments]);
 
   return <Slot />;
 }
@@ -45,9 +49,7 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
+    if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) return null;

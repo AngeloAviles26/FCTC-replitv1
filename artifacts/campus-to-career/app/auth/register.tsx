@@ -1,10 +1,10 @@
-import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,188 +12,112 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useApp } from "@/context/AppContext";
-import { useColors } from "@/hooks/useColors";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const PROGRAMS = ["BSIT", "BSCS", "BSECE", "BSEE", "BSCpE"];
+import { useApp } from "@/context/AppContext";
+
+const PROGRAMS = ["BSIT", "BSCS", "BSIS", "BSCE", "BSECE"];
 const YEAR_LEVELS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 
 export default function RegisterScreen() {
-  const colors = useColors();
-  const insets = useSafeAreaInsets();
   const { register } = useApp();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [program, setProgram] = useState("BSIT");
-  const [yearLevel, setYearLevel] = useState("1st Year");
+  const [yearLevel, setYearLevel] = useState("3rd Year");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleRegister = async () => {
-    if (!name || !email || !password) {
-      setError("Please fill in all required fields");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    const ok = await register({ name, email, password, program, yearLevel });
-    setLoading(false);
-    if (ok) router.replace("/(tabs)/");
-    else setError("Registration failed. Try again.");
+    if (!name || !email || !password) { setError("Please fill in all fields."); return; }
+    setLoading(true); setError("");
+    try {
+      await register({ name, email, password, program, yearLevel, university: "Polytechnic University of the Philippines" });
+      router.replace("/onboarding/step-courses");
+    } catch {
+      setError("Registration failed. Please try again.");
+    } finally { setLoading(false); }
   };
 
-  const Field = ({ label, value, onChangeText, placeholder, secureTextEntry = false, keyboardType = "default" as any }) => (
-    <>
-      <Text style={[styles.label, { color: colors.foreground }]}>{label}</Text>
-      <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
-        <TextInput
-          style={[styles.input, { color: colors.foreground }]}
-          placeholder={placeholder}
-          placeholderTextColor={colors.mutedForeground}
-          value={value}
-          onChangeText={onChangeText}
-          secureTextEntry={secureTextEntry}
-          keyboardType={keyboardType}
-          autoCapitalize={keyboardType === "email-address" ? "none" : "words"}
-        />
-      </View>
-    </>
-  );
-
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={s.safe} edges={["top"]}>
+      <LinearGradient colors={["#1A5CDB", "#1558B0", "#0f3d80"]} style={s.header}>
+        <Text style={s.logo}>🎓</Text>
+        <Text style={s.title}>Create Account</Text>
+        <Text style={s.subtitle}>Polytechnic University of the Philippines</Text>
+      </LinearGradient>
+
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 24 }]}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Feather name="arrow-left" size={22} color={colors.foreground} />
-          </Pressable>
+        <ScrollView style={s.form} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+          <Text style={s.sectionTitle}>Personal Information</Text>
 
-          <Text style={[styles.heading, { color: colors.foreground }]}>Create account</Text>
-          <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-            Join and discover your career path
-          </Text>
+          <Text style={s.label}>Full Name</Text>
+          <TextInput style={s.input} value={name} onChangeText={setName}
+            placeholder="e.g. Juan dela Cruz" placeholderTextColor="#94a3b8" autoCapitalize="words" />
 
-          {error ? (
-            <View style={[styles.errorBox, { backgroundColor: "#fee2e2" }]}>
-              <Text style={{ color: "#dc2626", fontSize: 13, fontFamily: "Inter_500Medium" }}>{error}</Text>
-            </View>
-          ) : null}
+          <Text style={s.label}>Email Address</Text>
+          <TextInput style={s.input} value={email} onChangeText={setEmail}
+            placeholder="yourname@iskolar.pup.edu.ph" placeholderTextColor="#94a3b8"
+            keyboardType="email-address" autoCapitalize="none" />
 
-          <Field label="Full Name" value={name} onChangeText={setName} placeholder="Juan dela Cruz" />
-          <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@university.edu.ph" keyboardType="email-address" />
-          <Field label="Password" value={password} onChangeText={setPassword} placeholder="Create a strong password" secureTextEntry />
+          <Text style={s.label}>Password</Text>
+          <TextInput style={s.input} value={password} onChangeText={setPassword}
+            placeholder="Create a secure password" placeholderTextColor="#94a3b8" secureTextEntry />
 
-          <Text style={[styles.label, { color: colors.foreground }]}>Program</Text>
-          <View style={styles.chipRow}>
+          <Text style={s.sectionTitle}>Academic Profile</Text>
+
+          <Text style={s.label}>Program</Text>
+          <View style={s.chipRow}>
             {PROGRAMS.map((p) => (
-              <Pressable
-                key={p}
-                onPress={() => setProgram(p)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: program === p ? colors.primary : colors.card,
-                    borderColor: program === p ? colors.primary : colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    { color: program === p ? "#fff" : colors.foreground },
-                  ]}
-                >
-                  {p}
-                </Text>
-              </Pressable>
+              <TouchableOpacity key={p} style={[s.chip, program === p && s.chipActive]} onPress={() => setProgram(p)}>
+                <Text style={[s.chipText, program === p && s.chipTextActive]}>{p}</Text>
+              </TouchableOpacity>
             ))}
           </View>
 
-          <Text style={[styles.label, { color: colors.foreground }]}>Year Level</Text>
-          <View style={styles.chipRow}>
+          <Text style={s.label}>Year Level</Text>
+          <View style={s.chipRow}>
             {YEAR_LEVELS.map((y) => (
-              <Pressable
-                key={y}
-                onPress={() => setYearLevel(y)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: yearLevel === y ? colors.primary : colors.card,
-                    borderColor: yearLevel === y ? colors.primary : colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    { color: yearLevel === y ? "#fff" : colors.foreground },
-                  ]}
-                >
-                  {y}
-                </Text>
-              </Pressable>
+              <TouchableOpacity key={y} style={[s.chip, yearLevel === y && s.chipActive]} onPress={() => setYearLevel(y)}>
+                <Text style={[s.chipText, yearLevel === y && s.chipTextActive]}>{y}</Text>
+              </TouchableOpacity>
             ))}
           </View>
 
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: colors.primary, opacity: loading ? 0.7 : 1 }]}
-            onPress={handleRegister}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.btnText}>{loading ? "Creating account..." : "Create Account"}</Text>
+          {error ? <Text style={s.error}>{error}</Text> : null}
+
+          <TouchableOpacity style={[s.btn, loading && { opacity: 0.7 }]} onPress={handleRegister} disabled={loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Create Account →</Text>}
           </TouchableOpacity>
 
-          <View style={styles.row}>
-            <Text style={[styles.rowText, { color: colors.mutedForeground }]}>Already have an account? </Text>
-            <Pressable onPress={() => router.back()}>
-              <Text style={[styles.rowLink, { color: colors.primary }]}>Sign In</Text>
-            </Pressable>
-          </View>
+          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+            <Text style={s.backText}>Already have an account? Sign in</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  content: { padding: 24 },
-  backBtn: { marginBottom: 20, width: 36 },
-  heading: { fontSize: 26, fontFamily: "Inter_700Bold", marginBottom: 6 },
-  sub: { fontSize: 14, fontFamily: "Inter_400Regular", marginBottom: 24 },
-  label: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 6, marginTop: 14 },
-  inputWrap: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 50,
-    justifyContent: "center",
-  },
-  input: { fontSize: 15, fontFamily: "Inter_400Regular" },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 100,
-    borderWidth: 1,
-  },
-  chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
-  errorBox: { padding: 12, borderRadius: 10, marginBottom: 8 },
-  btn: {
-    height: 52,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 28,
-  },
-  btnText: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: "#fff" },
-  row: { flexDirection: "row", justifyContent: "center", marginTop: 20 },
-  rowText: { fontSize: 14, fontFamily: "Inter_400Regular" },
-  rowLink: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#f8faff" },
+  header: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 28, alignItems: "center" },
+  logo: { fontSize: 36, marginBottom: 8 },
+  title: { fontSize: 22, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
+  subtitle: { fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 4, fontFamily: "Inter_400Regular", textAlign: "center" },
+  form: { flex: 1, paddingHorizontal: 20, paddingTop: 24 },
+  sectionTitle: { fontSize: 11, fontWeight: "700", color: "#1A5CDB", textTransform: "uppercase", letterSpacing: 1.2, marginTop: 4, marginBottom: 14, fontFamily: "Inter_700Bold" },
+  label: { fontSize: 14, fontWeight: "600", color: "#1e293b", marginBottom: 7, fontFamily: "Inter_600SemiBold" },
+  input: { backgroundColor: "#fff", borderWidth: 1.5, borderColor: "#e2e8f0", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, color: "#1e293b", marginBottom: 16, fontFamily: "Inter_400Regular" },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 18 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: "#cbd5e1", backgroundColor: "#fff" },
+  chipActive: { backgroundColor: "#1A5CDB", borderColor: "#1A5CDB" },
+  chipText: { fontSize: 13, color: "#475569", fontFamily: "Inter_500Medium" },
+  chipTextActive: { color: "#fff" },
+  error: { color: "#ef4444", fontSize: 13, marginBottom: 12, textAlign: "center", fontFamily: "Inter_400Regular" },
+  btn: { backgroundColor: "#1A5CDB", borderRadius: 14, paddingVertical: 16, alignItems: "center", marginTop: 8 },
+  btnText: { color: "#fff", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  backBtn: { alignItems: "center", marginTop: 18 },
+  backText: { color: "#1A5CDB", fontSize: 14, fontFamily: "Inter_500Medium" },
 });
