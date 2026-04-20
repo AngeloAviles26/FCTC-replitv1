@@ -25,6 +25,7 @@ export interface Certification {
   date: string;
   skills: string[];
   verified: boolean;
+  imageUri?: string;
 }
 
 export interface Project {
@@ -368,6 +369,7 @@ interface AppContextType {
   setAdditionalSkills: (skills: SkillItem[]) => void;
   addCertification: (cert: Certification) => void;
   removeCertification: (id: string) => void;
+  updateCertificationImage: (id: string, imageUri: string) => void;
   addProject: (project: Project) => void;
   removeProject: (id: string) => void;
   setTargetCareer: (career: string, postings: number) => void;
@@ -470,6 +472,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await save({ ...user, certifications: user.certifications.filter((c) => c.id !== id) });
   };
 
+  const updateCertificationImage = async (id: string, imageUri: string) => {
+    if (!user) return;
+    const certifications = user.certifications.map((c) =>
+      c.id === id ? { ...c, imageUri, verified: true } : c
+    );
+    await save({ ...user, certifications });
+  };
+
   const addProject = async (project: Project) => {
     if (!user) return;
     await save({ ...user, projects: [...user.projects, project] });
@@ -541,6 +551,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addCourse, removeCourse, setAdditionalSkills, addCertification, removeCertification,
       addProject, removeProject, setTargetCareer, completeOnboarding,
       updateRoadmapCertStatus, updateRoadmapProjectStatus, dismissDecayWarning,
+    updateCertificationImage,
     }}>
       {children}
     </AppContext.Provider>

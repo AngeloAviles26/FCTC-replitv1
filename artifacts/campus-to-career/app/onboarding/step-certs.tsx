@@ -1,7 +1,12 @@
 import { Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,14 +34,110 @@ const SUGGESTED_CERTS = [
   { title: "IBM Data Science Professional", issuer: "IBM / Coursera" },
 ];
 
+function CertImageModal({ visible, cert, onClose, onSaved }: {
+  visible: boolean;
+  cert: Certification | null;
+  onClose: () => void;
+  onSaved: (certId: string, uri: string) => void;
+}) {
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.85 });
+    if (!result.canceled && result.assets[0]) setImageUri(result.assets[0].uri);
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Camera Permission", "Please allow camera access to take a photo.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
+    if (!result.canceled && result.assets[0]) setImageUri(result.assets[0].uri);
+  };
+
+  const handleSave = () => {
+    if (!imageUri || !cert) return;
+    setSaving(true);
+    setTimeout(() => {
+      setSaving(false);
+      onSaved(cert.id, imageUri);
+      setImageUri(null);
+      onClose();
+    }, 700);
+  };
+
+  const handleClose = () => {
+    setImageUri(null);
+    onClose();
+  };
+
+  if (!cert) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={ms.overlay}>
+        <View style={ms.sheet}>
+          <View style={ms.handle} />
+          <View style={ms.header}>
+            <View style={{ flex: 1 }}>
+              <Text style={ms.title}>Upload Certificate Photo</Text>
+              <Text style={ms.sub} numberOfLines={2}>{cert.title}</Text>
+            </View>
+            <TouchableOpacity onPress={handleClose}>
+              <Feather name="x" size={22} color="#64748b" />
+            </TouchableOpacity>
+          </View>
+
+          {imageUri ? (
+            <View style={ms.previewWrap}>
+              <Image source={{ uri: imageUri }} style={ms.previewImg} resizeMode="contain" />
+              <TouchableOpacity style={ms.changeBtn} onPress={pickImage}>
+                <Feather name="refresh-ccw" size={13} color="#1A5CDB" />
+                <Text style={ms.changeBtnText}>Change image</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={ms.pickRow}>
+              <TouchableOpacity style={ms.pickCard} onPress={takePhoto}>
+                <View style={ms.pickIcon}><Feather name="camera" size={22} color="#1A5CDB" /></View>
+                <Text style={ms.pickTitle}>Take Photo</Text>
+                <Text style={ms.pickSub}>Camera</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={ms.pickCard} onPress={pickImage}>
+                <View style={ms.pickIcon}><Feather name="image" size={22} color="#1A5CDB" /></View>
+                <Text style={ms.pickTitle}>Gallery</Text>
+                <Text style={ms.pickSub}>JPG, PNG</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={ms.noteBox}>
+            <Feather name="shield" size={13} color="#10b981" />
+            <Text style={ms.noteText}>Uploading a certificate image marks it as verified in your profile, giving it higher weight in gap analysis.</Text>
+          </View>
+
+          <TouchableOpacity style={[ms.saveBtn, !imageUri && { opacity: 0.4 }]} onPress={handleSave} disabled={!imageUri || saving}>
+            {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={ms.saveBtnText}>Save Certificate Photo ✓</Text>}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function StepCertsScreen() {
-  const { addCertification, removeCertification, updateOnboardingStep, user } = useApp();
+  const { addCertification, removeCertification, updateCertificationImage, updateOnboardingStep, user } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [issuer, setIssuer] = useState("");
   const [date, setDate] = useState("");
   const [skillInput, setSkillInput] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
+  const [uploadTarget, setUploadTarget] = useState<Certification | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   const addSkill = (s: string) => {
     if (!s.trim() || skills.includes(s.trim())) return;
@@ -66,6 +167,10 @@ export default function StepCertsScreen() {
     router.push("/onboarding/step-projects");
   };
 
+  const handleImageSaved = (certId: string, uri: string) => {
+    updateCertificationImage(certId, uri);
+  };
+
   const certs = user?.certifications ?? [];
   const addedTitles = new Set(certs.map((c) => c.title));
 
@@ -83,7 +188,7 @@ export default function StepCertsScreen() {
           <Text style={s.step}>STEP 3 OF 4</Text>
           <Text style={s.title}>Certifications</Text>
           <Text style={s.subtitle}>
-            Add any completed certifications. Certification-verified skills carry higher confidence weight in your gap analysis.
+            Add any completed certifications. Upload a photo to verify them — verified certs carry higher confidence weight in your gap analysis.
           </Text>
         </View>
 
@@ -92,21 +197,42 @@ export default function StepCertsScreen() {
             <Text style={s.sectionLabel}>Your Certifications ({certs.length})</Text>
             {certs.map((c) => (
               <View key={c.id} style={s.certCard}>
-                <View style={s.certLeft}>
+                {c.imageUri ? (
+                  <Image source={{ uri: c.imageUri }} style={s.certThumb} />
+                ) : (
                   <View style={s.certBadge}><Text style={s.certBadgeText}>CERT</Text></View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.certTitle}>{c.title}</Text>
-                    <Text style={s.certIssuer}>{c.issuer || "Self-declared"}</Text>
-                    {c.skills.length > 0 && (
-                      <Text style={s.certSkills}>{c.skills.join(" · ")}</Text>
-                    )}
-                  </View>
+                )}
+                <View style={s.certLeft}>
+                  <Text style={s.certTitle}>{c.title}</Text>
+                  <Text style={s.certIssuer}>{c.issuer || "Self-declared"}</Text>
+                  {c.skills.length > 0 && (
+                    <Text style={s.certSkills}>{c.skills.join(" · ")}</Text>
+                  )}
                 </View>
-                <TouchableOpacity onPress={() => removeCertification(c.id)}>
-                  <Feather name="trash-2" size={16} color="#ef4444" />
-                </TouchableOpacity>
+                <View style={s.certRight}>
+                  {c.imageUri || c.verified ? (
+                    <View style={s.verifiedBadge}>
+                      <Feather name="check" size={11} color="#10b981" />
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={s.uploadBtn} onPress={() => {
+                      setUploadTarget(c);
+                      setShowUploadModal(true);
+                    }}>
+                      <Feather name="upload" size={14} color="#1A5CDB" />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => removeCertification(c.id)}>
+                    <Feather name="trash-2" size={15} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
+
+            <View style={s.uploadHintBox}>
+              <Feather name="info" size={13} color="#1A5CDB" />
+              <Text style={s.uploadHintText}>Tap the upload icon on any cert to attach a photo of your certificate for verification.</Text>
+            </View>
           </View>
         )}
 
@@ -196,6 +322,13 @@ export default function StepCertsScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      <CertImageModal
+        visible={showUploadModal}
+        cert={uploadTarget}
+        onClose={() => { setShowUploadModal(false); setUploadTarget(null); }}
+        onSaved={handleImageSaved}
+      />
     </SafeAreaView>
   );
 }
@@ -212,13 +345,19 @@ const s = StyleSheet.create({
   subtitle: { fontSize: 14, color: "#64748b", fontFamily: "Inter_400Regular", lineHeight: 21 },
   section: { paddingHorizontal: 20, marginBottom: 20 },
   sectionLabel: { fontSize: 12, fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10, fontFamily: "Inter_700Bold" },
-  certCard: { backgroundColor: "#fff", borderRadius: 12, padding: 14, marginBottom: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: "#e8f0fd" },
-  certLeft: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  certBadge: { backgroundColor: "#eff6ff", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, marginTop: 2 },
+  certCard: { backgroundColor: "#fff", borderRadius: 12, padding: 14, marginBottom: 8, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: "#e8f0fd" },
+  certLeft: { flex: 1 },
+  certBadge: { backgroundColor: "#eff6ff", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
   certBadgeText: { fontSize: 9, fontWeight: "700", color: "#1A5CDB", fontFamily: "Inter_700Bold" },
+  certThumb: { width: 36, height: 36, borderRadius: 6, backgroundColor: "#f1f5f9" },
   certTitle: { fontSize: 13, fontWeight: "600", color: "#0f172a", fontFamily: "Inter_600SemiBold", marginBottom: 2 },
   certIssuer: { fontSize: 12, color: "#64748b", fontFamily: "Inter_400Regular" },
   certSkills: { fontSize: 11, color: "#94a3b8", fontFamily: "Inter_400Regular", marginTop: 3 },
+  certRight: { flexDirection: "column", alignItems: "center", gap: 8 },
+  verifiedBadge: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#f0fdf4", borderWidth: 1, borderColor: "#bbf7d0", alignItems: "center", justifyContent: "center" },
+  uploadBtn: { width: 28, height: 28, borderRadius: 8, backgroundColor: "#eff6ff", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#bfdbfe" },
+  uploadHintBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#eff6ff", borderRadius: 10, padding: 10, marginTop: 4, borderWidth: 1, borderColor: "#bfdbfe" },
+  uploadHintText: { flex: 1, fontSize: 12, color: "#1A5CDB", fontFamily: "Inter_400Regular" },
   suggestedRow: { backgroundColor: "#fff", borderRadius: 12, padding: 14, marginBottom: 8, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#e2e8f0" },
   sugTitle: { fontSize: 14, fontWeight: "600", color: "#0f172a", fontFamily: "Inter_600SemiBold", marginBottom: 2 },
   sugIssuer: { fontSize: 12, color: "#64748b", fontFamily: "Inter_400Regular" },
@@ -247,4 +386,26 @@ const s = StyleSheet.create({
   footerHint: { fontSize: 13, color: "#64748b", fontFamily: "Inter_400Regular" },
   nextBtn: { backgroundColor: "#1A5CDB", paddingHorizontal: 28, paddingVertical: 13, borderRadius: 12 },
   nextBtnText: { color: "#fff", fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold" },
+});
+
+const ms = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  sheet: { backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36 },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#e2e8f0", alignSelf: "center", marginBottom: 16 },
+  header: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 },
+  title: { fontSize: 18, fontWeight: "700", color: "#0f172a", fontFamily: "Inter_700Bold" },
+  sub: { fontSize: 12, color: "#64748b", fontFamily: "Inter_400Regular", marginTop: 3 },
+  pickRow: { flexDirection: "row", gap: 12, marginBottom: 16 },
+  pickCard: { flex: 1, backgroundColor: "#f8faff", borderRadius: 14, padding: 16, alignItems: "center", gap: 8, borderWidth: 1.5, borderColor: "#e2e8f0" },
+  pickIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: "#eff6ff", alignItems: "center", justifyContent: "center" },
+  pickTitle: { fontSize: 13, fontWeight: "700", color: "#0f172a", fontFamily: "Inter_700Bold" },
+  pickSub: { fontSize: 11, color: "#94a3b8", fontFamily: "Inter_400Regular" },
+  previewWrap: { alignItems: "center", marginBottom: 14 },
+  previewImg: { width: "100%", height: 160, borderRadius: 12, backgroundColor: "#f1f5f9" },
+  changeBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
+  changeBtnText: { fontSize: 13, color: "#1A5CDB", fontFamily: "Inter_600SemiBold" },
+  noteBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#f0fdf4", borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: "#bbf7d0" },
+  noteText: { flex: 1, fontSize: 12, color: "#15803d", fontFamily: "Inter_400Regular" },
+  saveBtn: { backgroundColor: "#1A5CDB", borderRadius: 12, paddingVertical: 13, alignItems: "center", justifyContent: "center" },
+  saveBtnText: { color: "#fff", fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold" },
 });
