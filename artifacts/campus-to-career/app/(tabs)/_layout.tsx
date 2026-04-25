@@ -20,13 +20,13 @@ function NativeTabLayout() {
         <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
         <Label>Gap Analysis</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="skill-decay">
+        <Icon sf={{ default: "waveform.path.ecg", selected: "waveform.path.ecg" }} />
+        <Label>Skill Decay</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="roadmap">
         <Icon sf={{ default: "map", selected: "map.fill" }} />
         <Label>Roadmap</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="profile">
-        <Icon sf={{ default: "person", selected: "person.fill" }} />
-        <Label>Profile</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -96,6 +96,44 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
+        name="skill-decay"
+        options={{
+          title: "Skill Decay",
+          headerShown: false,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={{ alignItems: "center", justifyContent: "center" }}>
+              {focused ? (
+                <View style={{
+                  width: 44, height: 44, borderRadius: 22,
+                  backgroundColor: "#1A5CDB",
+                  alignItems: "center", justifyContent: "center",
+                  marginBottom: -6,
+                  shadowColor: "#1A5CDB", shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
+                }}>
+                  <Feather name="activity" size={20} color="#fff" />
+                </View>
+              ) : (
+                <View style={{
+                  width: 44, height: 44, borderRadius: 22,
+                  backgroundColor: "#eff6ff",
+                  alignItems: "center", justifyContent: "center",
+                  marginBottom: -6,
+                  borderWidth: 1.5, borderColor: "#bfdbfe",
+                }}>
+                  <Feather name="activity" size={20} color="#1A5CDB" />
+                </View>
+              )}
+            </View>
+          ),
+          tabBarLabel: ({ color, focused }) => (
+            <View style={{ marginTop: 8 }}>
+              <View style={{ fontSize: 10 } as any} />
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="roadmap"
         options={{
           title: "Roadmap",
@@ -111,14 +149,8 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          href: null,
           headerShown: false,
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="person" tintColor={color} size={24} />
-            ) : (
-              <Feather name="user" size={22} color={color} />
-            ),
         }}
       />
     </Tabs>

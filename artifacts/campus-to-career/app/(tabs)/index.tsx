@@ -65,7 +65,6 @@ const trendIcon = (trend: string, val: number) => {
 
 export default function HomeScreen() {
   const { user, updateRoadmapCertStatus } = useApp();
-  const [showDecay, setShowDecay] = useState(false);
   const [showAffinity, setShowAffinity] = useState(false);
 
   if (!user) return null;
@@ -126,12 +125,12 @@ export default function HomeScreen() {
         </LinearGradient>
 
         {activeDecays.length > 0 && (
-          <TouchableOpacity style={s.decayBanner} onPress={() => setShowDecay(true)}>
+          <TouchableOpacity style={s.decayBanner} onPress={() => router.push("/(tabs)/skill-decay")}>
             <View style={s.decayBannerLeft}>
               <Text style={s.decayBannerIcon}>⚠</Text>
               <View>
                 <Text style={s.decayBannerTitle}>Skill Decay Warning</Text>
-                <Text style={s.decayBannerSub}>{activeDecays[0].skill} is declining at {Math.abs(activeDecays[0].trendPerMonth)}%/month · Tap to see analysis</Text>
+                <Text style={s.decayBannerSub}>{activeDecays[0].skill} is declining at {Math.abs(activeDecays[0].trendPerMonth)}%/month · View full analysis</Text>
               </View>
             </View>
             <Feather name="chevron-right" size={18} color="#dc2626" />
@@ -228,60 +227,6 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
-
-      <Modal visible={showDecay} transparent animationType="slide">
-        <View style={s.modalOverlay}>
-          <View style={s.modal}>
-            <View style={s.modalHandle} />
-            <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>⚠ Skill Decay Warning</Text>
-              <TouchableOpacity onPress={() => setShowDecay(false)}>
-                <Feather name="x" size={22} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-            {activeDecays.map((d) => (
-              <View key={d.id}>
-                <View style={s.decaySkillRow}>
-                  <Text style={s.decaySkillName}>{d.skill}</Text>
-                  <View style={s.decayTrendBadge}>
-                    <Text style={s.decayTrendText}>{d.trendPerMonth}%/mo</Text>
-                  </View>
-                </View>
-                <Text style={s.decayRoleLabel}>Data Analyst · Philippine Market</Text>
-
-                <Text style={s.decayChartTitle}>SDI TREND HISTORY</Text>
-                {d.history.map((h, i) => (
-                  <View key={i} style={s.historyRow}>
-                    <Text style={s.historyPeriod}>{h.period}</Text>
-                    <View style={s.historyBarWrap}>
-                      <View style={[s.historyBar, { width: `${h.value}%` as any, backgroundColor: h.value > 30 ? "#94a3b8" : "#ef4444" }]} />
-                    </View>
-                    <Text style={s.historyValue}>{h.value}%</Text>
-                  </View>
-                ))}
-
-                <View style={s.regressionBox}>
-                  <Text style={s.regressionRow}>Slope: <Text style={{ color: "#ef4444" }}>{d.trendPerMonth}% per month</Text></Text>
-                  <Text style={s.regressionRow}>R² fit quality: <Text style={{ color: "#10b981" }}>{d.rSquared} (very strong)</Text></Text>
-                  <Text style={s.regressionRow}>Forecast in 3 months: <Text style={{ color: "#ef4444" }}>~{d.forecastIn3Months}%</Text></Text>
-                </View>
-
-                <View style={s.replacementBox}>
-                  <Text style={s.replacementTitle}>RECOMMENDED REPLACEMENT</Text>
-                  <View style={s.replacementRow}>
-                    <Text style={s.replacementSkill}>{d.replacement}</Text>
-                    <View style={s.replacementTrendBadge}><Text style={s.replacementTrendText}>+{d.replacementTrend}%/mo ↑</Text></View>
-                  </View>
-                  <Text style={s.replacementConfidence}>{Math.round(d.coOccurrenceConfidence * 100)}% of postings listing {d.skill} now prefer {d.replacement}</Text>
-                </View>
-              </View>
-            ))}
-            <TouchableOpacity style={s.addRoadmapBtn} onPress={() => setShowDecay(false)}>
-              <Text style={s.addRoadmapBtnText}>Add Power BI to Roadmap →</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       <Modal visible={showAffinity} transparent animationType="slide">
         <View style={s.modalOverlay}>
