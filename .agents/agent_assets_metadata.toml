@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "cwWSia19tAR_zFB20nsuG"
+uri = "file://artifacts/campus-to-career/assets/images/icon.png"
+type = "image"
+title = "generated_image"
